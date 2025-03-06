@@ -4,12 +4,34 @@
 
 package frc.robot;
 
-import frc.robot.Constants.OperatorConstants;
-import frc.robot.commands.Autos;
-import frc.robot.commands.ExampleCommand;
-import frc.robot.subsystems.ExampleSubsystem;
+
+import frc.robot.commands.SetElevatorCommand;
+import frc.robot.commands.SpinCoralUntilHeldCommand;
+import frc.robot.commands.ManualClimberCommand;
+import frc.robot.commands.ManualCoralCommand;
+import frc.robot.commands.SetCoralCommand;
+import frc.robot.commands.SetElevatorCommand;
+import frc.robot.commands.SetElevatorCommand;
+import frc.robot.subsystems.ClimberSubsystem;
+import frc.robot.subsystems.CoralSubsystem;
+import frc.robot.subsystems.ElevatorSubsystem;
+import frc.robot.subsystems.swervedrive.SwerveSubsystem;
+import swervelib.SwerveDrive;
+
+import java.io.File;
+import java.util.function.DoubleSupplier;
+
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
+import edu.wpi.first.wpilibj2.command.WaitUntilCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
@@ -20,14 +42,24 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
  */
 public class RobotContainer {
   // The robot's subsystems and commands are defined here...
-  private final ExampleSubsystem m_exampleSubsystem = new ExampleSubsystem();
-
+  public SwerveDrive swerveDrive;
+  public SwerveSubsystem swerveSubsystem = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve"));
+  public ElevatorSubsystem elevatorSubsystem;
+  public CoralSubsystem coralSubsystem;
+  public ClimberSubsystem climberSubsystem;
   // Replace with CommandPS4Controller or CommandJoystick if needed
-  private final CommandXboxController m_driverController =
-      new CommandXboxController(OperatorConstants.kDriverControllerPort);
+  public final CommandXboxController driver = new CommandXboxController(Constants.Driver.id);
+  public final CommandPS5Controller operator = new CommandPS5Controller(Constants.Operator.id);
+
+  public ManualCoralCommand manualCoralCommand;
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+    elevatorSubsystem = new ElevatorSubsystem();
+    coralSubsystem = new CoralSubsystem();
+    climberSubsystem = new ClimberSubsystem();
+
+    manualCoralCommand = new ManualCoralCommand(coralSubsystem, operator);
     // Configure the trigger bindings
     configureBindings();
   }
@@ -42,13 +74,43 @@ public class RobotContainer {
    * joysticks}.
    */
   private void configureBindings() {
-    // Schedule `ExampleCommand` when `exampleCondition` changes to `true`
-    new Trigger(m_exampleSubsystem::exampleCondition)
-        .onTrue(new ExampleCommand(m_exampleSubsystem));
+    /* translation controls for the robot */
+    DoubleSupplier speedMod = () -> driver.getRawAxis(XboxController.Axis.kRightTrigger.value) == 1 ? 1.5 : 1;
+    /* NOTE: the division is used to reduce the speed of the robot when the left trigger is held */
+    DoubleSupplier translationX = () -> -MathUtil.applyDeadband(driver.getLeftY(), Constants.Driver.leftStick.Y) / speedMod.getAsDouble();
+    DoubleSupplier translationY = () -> -MathUtil.applyDeadband(driver.getLeftX(), Constants.Driver.leftStick.X) / speedMod.getAsDouble();
 
-    // Schedule `exampleMethodCommand` when the Xbox controller's B button is pressed,
-    // cancelling on release.
-    m_driverController.b().whileTrue(m_exampleSubsystem.exampleMethodCommand());
+    /* rotation controls for the robot */
+    DoubleSupplier angularRotationX = () -> -MathUtil.applyDeadband(driver.getRawAxis(4), Constants.Driver.rightStick.X) / speedMod.getAsDouble();
+
+    Command driverControls = swerveSubsystem.driveCommand(translationX, translationY, angularRotationX);
+    swerveSubsystem.setDefaultCommand(driverControls);
+
+    driver.y().onTrue(new InstantCommand(swerveSubsystem::zeroGyro)); //zero gyro command
+    operator.triangle().onTrue(new SequentialCommandGroup(
+       new SetElevatorCommand(elevatorSubsystem, Constants.ElevatorConstants.ElevatorL4),
+       new SetCoralCommand(coralSubsystem, Constants.CoralConstants.coralL4)
+      )); // L4 Preset (untested)
+    operator.square().onTrue(new SequentialCommandGroup(
+      new SetElevatorCommand(elevatorSubsystem, Constants.ElevatorConstants.ElevatorL3),
+      new SetCoralCommand(coralSubsystem, Constants.CoralConstants.coralL3)
+    )); //L3 Preset (untested)
+    operator.cross().onTrue(new SequentialCommandGroup(
+      new SetElevatorCommand(elevatorSubsystem, Constants.ElevatorConstants.ElevatorL2),
+      new SetCoralCommand(coralSubsystem, Constants.CoralConstants.coralL2)
+    )); //L2 Preset (untested)
+    operator.circle().onTrue(new SequentialCommandGroup(
+      new SetElevatorCommand(elevatorSubsystem, Constants.ElevatorConstants.ElevatorL1),
+      new SetCoralCommand(coralSubsystem, Constants.CoralConstants.coralL1)
+    )); //L1 Preset (untested)
+    operator.touchpad().onTrue(new SequentialCommandGroup(
+      new SetElevatorCommand(elevatorSubsystem, 0.5),
+      new SetCoralCommand(coralSubsystem, 0.3),
+      new SpinCoralUntilHeldCommand(coralSubsystem, -0.5).withTimeout(10)
+    ));
+
+    operator.povUp().onTrue(new ManualClimberCommand(climberSubsystem, 0.6)); //speed is random rn, untested
+    operator.povDown().onTrue(new ManualClimberCommand(climberSubsystem, -0.6)); //speed is random rn, untested
   }
 
   /**
@@ -56,8 +118,9 @@ public class RobotContainer {
    *
    * @return the command to run in autonomous
    */
-  public Command getAutonomousCommand() {
+ public Command getAutonomousCommand() {
     // An example command will be run in autonomous
-    return Autos.exampleAuto(m_exampleSubsystem);
-  }
+    //return Autos.exampleAuto(swerveSubsystem);
+    return swerveSubsystem.getAutonomousCommand("New Auto");
+ }
 }

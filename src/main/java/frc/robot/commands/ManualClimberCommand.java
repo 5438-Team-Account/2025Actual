@@ -4,23 +4,20 @@
 
 package frc.robot.commands;
 
-import frc.robot.subsystems.ExampleSubsystem;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.subsystems.ClimberSubsystem;
 
-/** An example command that uses an example subsystem. */
-public class ExampleCommand extends Command {
-  @SuppressWarnings({"PMD.UnusedPrivateField", "PMD.SingularField"})
-  private final ExampleSubsystem m_subsystem;
+/* You should consider using the more terse Command factories API instead https://docs.wpilib.org/en/stable/docs/software/commandbased/organizing-command-based.html#defining-commands */
+public class ManualClimberCommand extends Command {
+  /** Creates a new ManualClimberCommand. */
+  private ClimberSubsystem climberSubsystem;
+  private double speed;
+  public ManualClimberCommand(ClimberSubsystem climberSubsystem, double speed) {
+    this.climberSubsystem = climberSubsystem;
+    this.speed = speed;
 
-  /**
-   * Creates a new ExampleCommand.
-   *
-   * @param subsystem The subsystem used by this command.
-   */
-  public ExampleCommand(ExampleSubsystem subsystem) {
-    m_subsystem = subsystem;
     // Use addRequirements() here to declare subsystem dependencies.
-    addRequirements(subsystem);
+    addRequirements(climberSubsystem);
   }
 
   // Called when the command is initially scheduled.
@@ -29,7 +26,9 @@ public class ExampleCommand extends Command {
 
   // Called every time the scheduler runs while the command is scheduled.
   @Override
-  public void execute() {}
+  public void execute() {
+    climberSubsystem.climber.set(speed);
+  }
 
   // Called once the command ends or is interrupted.
   @Override
