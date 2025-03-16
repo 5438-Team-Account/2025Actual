@@ -15,11 +15,14 @@ import frc.robot.subsystems.CoralSubsystem;
 public class SetCoralCommand extends Command {
   private CoralSubsystem coralSubsystem;;
   private double encoderSetPoint;
+  private boolean right;
   /** Creates a new CoralPreset. */
-  public SetCoralCommand(CoralSubsystem coralSubsystem, double encoderSetPoint) {
+  public SetCoralCommand(CoralSubsystem coralSubsystem, double encoderSetPoint, boolean right) {
     this.coralSubsystem = coralSubsystem;
     this.encoderSetPoint = encoderSetPoint;
+    this.right = right;
     // Use addRequirements() here to declare subsystem dependencies.
+    addRequirements(coralSubsystem);
   }
 
   // Called when the command is initially scheduled.
@@ -43,9 +46,16 @@ public class SetCoralCommand extends Command {
   // Returns true when the command should end.
   @Override
   public boolean isFinished() {
-    double aimError = Math.abs(coralSubsystem.coralPivotEncoderDistanceRight - encoderSetPoint);
-    if (aimError <= Constants.CoralConstants.coralTolerance) {
+    double aimErrorRight = Math.abs(coralSubsystem.coralPivotEncoderDistanceRight - encoderSetPoint);
+    double aimErrorLeft = Math.abs(coralSubsystem.coralPivotEncoderDistanceLeft - encoderSetPoint);
+    if(right)
+      if(aimErrorRight <= Constants.CoralConstants.coralTolerance) {
+          return true;
+      }
+    else{
+      if (aimErrorLeft <= Constants.CoralConstants.coralTolerance){
         return true;
+      }
     }
     return false;
   }

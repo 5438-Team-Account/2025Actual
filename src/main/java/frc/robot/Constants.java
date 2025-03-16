@@ -86,5 +86,7 @@ public final class Constants {
     public static final PIDController algaePivotPID = new PIDController(8.5, 0, 0.2);
 
     public static final int algaeDetectorID = 1234;
+
+    public static final double algaeTolerance = 0.02;
   }
 }
